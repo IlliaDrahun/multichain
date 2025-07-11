@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/multichain/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/multichain/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/transaction-service",
+  "projects": {
+    "transaction-service": {
+      "type": "application",
+      "root": "apps/transaction-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/transaction-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/transaction-service/tsconfig.app.json"
+      }
+    },
+    "transaction-sender-service": {
+      "type": "application",
+      "root": "apps/transaction-sender-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/transaction-sender-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/transaction-sender-service/tsconfig.app.json"
+      }
+    },
+    "transaction-watcher-service": {
+      "type": "application",
+      "root": "apps/transaction-watcher-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/transaction-watcher-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/transaction-watcher-service/tsconfig.app.json"
+      }
+    },
+    "shared": {
+      "type": "library",
+      "root": "libs/shared",
+      "entryFile": "index",
+      "sourceRoot": "libs/shared/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/shared/tsconfig.lib.json"
+      }
+    }
+  }
+}

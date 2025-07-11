@@ -1,0 +1,169 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: multichain
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:6.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NUM_PARTITIONS: 3
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 45s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      DYNAMIC_CONFIG_ENABLED: 'true'
+
+  transaction-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: transaction-service
+    container_name: transaction-service
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/multichain
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=kafka:29092
+      - ETHEREUM_SEPOLIA_RPC_URL=${ETHEREUM_SEPOLIA_RPC_URL}
+      - POLYGON_AMOY_RPC_URL=${POLYGON_AMOY_RPC_URL}
+      - BSC_TESTNET_RPC_URL=${BSC_TESTNET_RPC_URL}
+    volumes:
+      - ./apps/transaction-service:/usr/src/app/apps/transaction-service
+      - ./libs/shared:/usr/src/app/libs/shared
+    command: npm run start:dev transaction-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  transaction-sender-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: transaction-sender-service
+    container_name: transaction-sender-service
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/multichain
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=kafka:29092
+      - ETHEREUM_SEPOLIA_RPC_URL=${ETHEREUM_SEPOLIA_RPC_URL}
+      - POLYGON_AMOY_RPC_URL=${POLYGON_AMOY_RPC_URL}
+      - BSC_TESTNET_RPC_URL=${BSC_TESTNET_RPC_URL}
+    volumes:
+      - ./apps/transaction-sender-service:/usr/src/app/apps/transaction-sender-service
+      - ./libs/shared:/usr/src/app/libs/shared
+    command: npm run start:dev transaction-sender-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  transaction-watcher-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: transaction-watcher-service
+    container_name: transaction-watcher-service
+    ports:
+      - "3002:3000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/multichain
+      - KAFKA_BROKERS=kafka:29092
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ETHEREUM_SEPOLIA_RPC_URL=${ETHEREUM_SEPOLIA_RPC_URL}
+      - POLYGON_AMOY_RPC_URL=${POLYGON_AMOY_RPC_URL}
+      - BSC_TESTNET_RPC_URL=${BSC_TESTNET_RPC_URL}
+    volumes:
+      - ./apps/transaction-watcher-service:/usr/src/app/apps/transaction-watcher-service
+      - ./libs/shared:/usr/src/app/libs/shared
+    command: npm run start:dev transaction-watcher-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
