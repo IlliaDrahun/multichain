@@ -69,6 +69,7 @@ export class TransactionWatcherServiceService implements OnModuleInit {
     const chainIds = this.blockchainService.getSupportedChainIds();
     for (const chainId of chainIds) {
       await this.checkPendingTransactions(chainId);
+      await this.checkReorgedNonces(chainId);
     }
   }
 
@@ -97,8 +98,52 @@ export class TransactionWatcherServiceService implements OnModuleInit {
       }
 
       try {
+        if (tx.blockNumber != null) {
+          const isFinalized = await this.blockchainService.isBlockFinalized(
+            chainId,
+            Number(tx.blockNumber),
+          );
+          if (!isFinalized) {
+            this.logger.log(
+              `Block ${tx.blockNumber} for tx ${tx.txHash} is not finalized yet.`,
+            );
+            continue;
+          }
+          const provider = this.blockchainService.getProvider(chainId);
+          const block = await provider.getBlock(Number(tx.blockNumber), true);
+          const found = Array.isArray(block?.transactions)
+            ? block.transactions.some(
+                (t: { hash?: string }) => t?.hash === tx.txHash,
+              )
+            : false;
+          if (found) {
+            this.logger.log(
+              `Transaction ${tx.txHash} is finalized and confirmed!`,
+            );
+            tx.status = TransactionStatus.CONFIRMED;
+          } else {
+            this.logger.error(
+              `Transaction ${tx.txHash} not found in finalized block. Marking as REORGED.`,
+            );
+            tx.status = TransactionStatus.REORGED;
+          }
+          await this.transactionRepository.save(tx);
+          try {
+            this.kafkaClient.emit('tx.status', {
+              transactionId: tx.id,
+              status: tx.status,
+              txHash: tx.txHash,
+            });
+          } catch (err) {
+            this.logger.error(
+              `Failed to emit tx.status message for transaction ${tx.id}:`,
+              err instanceof Error ? err.message : String(err),
+            );
+          }
+          await this.deleteTransactionFromStream(tx);
+          continue;
+        }
         const receipt = await provider.getTransactionReceipt(tx.txHash);
-
         if (receipt) {
           const confirmations = await receipt.confirmations();
           const requiredConfirmations =
@@ -137,6 +182,79 @@ export class TransactionWatcherServiceService implements OnModuleInit {
           `Error checking receipt for tx ${tx.txHash}:`,
           error instanceof Error ? error.stack : String(error),
         );
+      }
+    }
+  }
+
+  /**
+   * Мониторинг nonce для REORGED транзакций: если появляется новая tx с этим nonce — уведомить пользователя
+   */
+  private async checkReorgedNonces(chainId: string) {
+    const reorgedTxs = await this.transactionRepository.find({
+      where: { chainId, status: TransactionStatus.REORGED },
+    });
+    if (reorgedTxs.length === 0) return;
+    const provider = this.blockchainService.getProvider(chainId);
+    for (const tx of reorgedTxs) {
+      if (!tx.nonce || !tx.userAddress) continue;
+      const userNonce = await provider.getTransactionCount(
+        tx.userAddress,
+        'latest',
+      );
+      const ourNonce = Number(tx.nonce);
+      if (userNonce > ourNonce) {
+        // Nonce уже занят — пользователь отправил другую транзакцию
+        tx.status = TransactionStatus.FAILED;
+        await this.transactionRepository.save(tx);
+        try {
+          this.kafkaClient.emit('tx.status', {
+            transactionId: tx.id,
+            status: tx.status,
+            txHash: tx.txHash,
+            reason: 'nonce_replaced',
+          });
+        } catch (err) {
+          this.logger.error(
+            `Failed to emit tx.status message for transaction ${tx.id}:`,
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+        continue;
+      }
+      if (userNonce === ourNonce) {
+        // Автоматически повторно отправляем транзакцию
+        const redisClient = this.redisService.getClient();
+        await redisClient.xadd(
+          'tx:to-sign',
+          '*',
+          'transactionId',
+          tx.id,
+          'chainId',
+          tx.chainId,
+          'contractAddress',
+          tx.contractAddress,
+          'method',
+          tx.method,
+          'args',
+          JSON.stringify(tx.args),
+          'userAddress',
+          tx.userAddress,
+        );
+        tx.status = TransactionStatus.PENDING_SIGN;
+        await this.transactionRepository.save(tx);
+        try {
+          this.kafkaClient.emit('tx.status', {
+            transactionId: tx.id,
+            status: tx.status,
+            txHash: tx.txHash,
+            reason: 'auto_resubmitted',
+          });
+        } catch (err) {
+          this.logger.error(
+            `Failed to emit tx.status message for transaction ${tx.id}:`,
+            err instanceof Error ? err.message : String(err),
+          );
+        }
       }
     }
   }

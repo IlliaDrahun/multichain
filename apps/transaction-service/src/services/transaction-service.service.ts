@@ -122,11 +122,27 @@ export class TransactionServiceService implements OnModuleInit {
     this.logger.log(
       `Transaction ${transaction.id} status updated to ${transaction.status}`,
     );
-    this.notificationsGateway.sendToUser(
-      transaction.userAddress,
-      'statusUpdate',
-      transaction,
-    );
+    if (transaction.status === TransactionStatus.REORGED) {
+      this.notificationsGateway.sendToUser(transaction.userAddress, 'reorged', {
+        id: transaction.id,
+        status: transaction.status,
+        txHash: transaction.txHash,
+        blockNumber: transaction.blockNumber,
+        updatedAt: transaction.updatedAt,
+      });
+    } else {
+      this.notificationsGateway.sendToUser(
+        transaction.userAddress,
+        'statusUpdate',
+        {
+          id: transaction.id,
+          status: transaction.status,
+          txHash: transaction.txHash,
+          blockNumber: transaction.blockNumber,
+          updatedAt: transaction.updatedAt,
+        },
+      );
+    }
   }
 
   /**

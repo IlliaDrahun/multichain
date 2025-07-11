@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JsonRpcProvider, Wallet } from 'ethers';
+import { JsonRpcProvider, Wallet, Block } from 'ethers';
 import { SUPPORTED_CHAINS } from '../constants';
 
 @Injectable()
@@ -50,5 +50,33 @@ export class BlockchainService implements OnModuleInit {
 
   getSupportedChainIds(): IterableIterator<string> {
     return this.providers.keys();
+  }
+
+  /**
+   * Returns the latest finalized block for the given chain.
+   */
+  async getFinalizedBlock(chainId: string): Promise<Block> {
+    const provider = this.getProvider(chainId);
+    let block: Block | null = null;
+    try {
+      block = await provider.getBlock('finalized');
+    } catch {
+      block = await provider.getBlock('latest');
+    }
+    if (!block) {
+      throw new Error('Could not fetch finalized or latest block');
+    }
+    return block;
+  }
+
+  /**
+   * Checks if a given block number is finalized on the chain.
+   */
+  async isBlockFinalized(
+    chainId: string,
+    blockNumber: number,
+  ): Promise<boolean> {
+    const finalizedBlock = await this.getFinalizedBlock(chainId);
+    return finalizedBlock.number >= blockNumber;
   }
 }

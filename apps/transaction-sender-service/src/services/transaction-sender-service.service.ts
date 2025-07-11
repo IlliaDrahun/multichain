@@ -169,6 +169,8 @@ export class TransactionSenderServiceService implements OnModuleInit {
 
       transaction.txHash = tx.hash;
       transaction.status = TransactionStatus.PENDING;
+      transaction.blockNumber = tx.blockNumber?.toString() ?? null;
+      transaction.nonce = tx.nonce?.toString() ?? null;
       await this.transactionRepository.save(transaction);
 
       this.logger.log(

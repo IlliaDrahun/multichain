@@ -11,6 +11,7 @@ export enum TransactionStatus {
   PENDING = 'PENDING',
   CONFIRMED = 'CONFIRMED',
   FAILED = 'FAILED',
+  REORGED = 'REORGED',
 }
 
 @Entity({ name: 'transactions' })
@@ -38,6 +39,12 @@ export class Transaction {
 
   @Column({ nullable: true })
   redisStreamMessageId: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  blockNumber: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  nonce: string | null;
 
   @Column({
     type: 'enum',
