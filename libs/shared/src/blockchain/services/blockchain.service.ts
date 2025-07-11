@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JsonRpcProvider, Wallet } from 'ethers';
-import { SUPPORTED_CHAINS } from './constants';
+import { SUPPORTED_CHAINS } from '../constants';
 
 @Injectable()
 export class BlockchainService implements OnModuleInit {

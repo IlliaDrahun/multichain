@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TransactionWatcherServiceService } from './transaction-watcher-service.service';
+import { TransactionWatcherServiceService } from './services/transaction-watcher-service.service';
 import {
   BlockchainModule,
   DatabaseModule,

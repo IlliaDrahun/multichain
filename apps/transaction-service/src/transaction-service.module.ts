@@ -5,10 +5,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DatabaseModule, RedisModule, Transaction } from '@app/shared';
 import { validationSchema } from '@app/shared/config/schema';
-import { TransactionServiceController } from './transaction-service.controller';
-import { TransactionServiceService } from './transaction-service.service';
-import { NotificationsGateway } from './notifications.gateway';
-import { KafkaConsumerService } from './kafka-consumer.service';
+import { TransactionServiceController } from './controllers/transaction-service.controller';
+import { TransactionServiceService } from './services/transaction-service.service';
+import { NotificationsGateway } from './gateways/notifications.gateway';
+import { KafkaConsumerService } from './services/kafka-consumer.service';
 
 @Module({
   imports: [

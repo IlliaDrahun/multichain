@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
-import { TransactionServiceService } from './transaction-service.service';
-import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { TransactionServiceService } from '../services/transaction-service.service';
+import { CreateTransactionDto } from '../dto/create-transaction.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Transaction } from '@app/shared';
 

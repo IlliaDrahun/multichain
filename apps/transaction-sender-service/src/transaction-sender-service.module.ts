@@ -9,8 +9,7 @@ import {
   KafkaModule,
 } from '@app/shared';
 import { validationSchema } from '@app/shared/config/schema';
-import { TransactionSenderServiceController } from './transaction-sender-service.controller';
-import { TransactionSenderServiceService } from './transaction-sender-service.service';
+import { TransactionSenderServiceService } from './services/transaction-sender-service.service';
 
 @Module({
   imports: [
@@ -24,7 +23,6 @@ import { TransactionSenderServiceService } from './transaction-sender-service.se
     BlockchainModule,
     KafkaModule.registerClient('TRANSACTION_SENDER_CLIENT'),
   ],
-  controllers: [TransactionSenderServiceController],
   providers: [TransactionSenderServiceService],
 })
 export class TransactionSenderServiceModule {}

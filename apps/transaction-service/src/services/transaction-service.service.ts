@@ -3,8 +3,8 @@ import { EventPattern } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Transaction, RedisService, TransactionStatus } from '@app/shared';
-import { CreateTransactionDto } from './dto/create-transaction.dto';
-import { NotificationsGateway } from './notifications.gateway';
+import { CreateTransactionDto } from '../dto/create-transaction.dto';
+import { NotificationsGateway } from '../gateways/notifications.gateway';
 
 /**
  * Payload for transaction events (tx.sent, tx.status)
